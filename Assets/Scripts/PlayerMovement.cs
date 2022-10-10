@@ -16,10 +16,15 @@ public class PlayerMovement : MonoBehaviour
     public float jumpForce = 50;
     public float slideSpeed = 5;
     public float wallJumpLerp = 10;
+    public float dashSpeed = 20;
+    public float dashTime;
+    public float dashCD;
 
     [Space]
     [Header("Booleans")]
     public bool canMove;
+    private bool canDash = true;
+    private bool isDashing;
     public bool wallJumped;
     public bool wallSlide;
     public int side = 1;
@@ -49,21 +54,11 @@ public class PlayerMovement : MonoBehaviour
         anim.SetBool("Grounded", coll.onGround);
         anim.SetBool("WallSlide", wallSlide);
 
-        if (coll.onWall && canMove)
-        {
-            wallSlide = false;
-        }
 
-        if (!coll.onWall || !canMove)
-        {
-            wallSlide = false;
-        }
-
-        if (coll.onGround)
+        if (coll.onGround && !isDashing)
         {
             wallJumped = false;
             GetComponent<BetterJumping>().enabled = true;
-            
         }
 
         if (coll.onWall && !coll.onGround)
@@ -75,6 +70,7 @@ public class PlayerMovement : MonoBehaviour
             }
         }
 
+
         if (!coll.onWall || coll.onGround)
             wallSlide = false;
 
@@ -84,6 +80,12 @@ public class PlayerMovement : MonoBehaviour
                 Jump(Vector2.up, false);
             if (coll.onWall && !coll.onGround)
                 WallJump();
+        }
+
+        if (Input.GetButtonDown("Fire1") && canDash)
+        {
+            if (x != 0)
+                Dash(x);
         }
 
         if (wallSlide || !canMove)
@@ -99,6 +101,39 @@ public class PlayerMovement : MonoBehaviour
 
     }
 
+
+    private void Dash(float x)
+    {
+        canDash = false;
+
+        anim.SetTrigger("Dash");
+
+        rb.velocity = Vector2.zero;
+        Vector2 dir = new Vector2(x, rb.velocity.y);
+        rb.velocity += dir.normalized * dashSpeed;
+        StartCoroutine(DashWait());
+    }
+
+
+    IEnumerator DashWait()
+    {
+
+        rb.gravityScale = 0;
+        GetComponent<BetterJumping>().enabled = false;
+        wallJumped = true;
+        isDashing = true;
+
+        yield return new WaitForSeconds(dashTime);
+
+        rb.gravityScale = 3;
+        GetComponent<BetterJumping>().enabled = true;
+        wallJumped = false;
+        isDashing = false;
+        yield return new WaitForSeconds(dashCD);
+        canDash = true;
+    }
+
+
     private void WallJump()
     {
         if ((side == 1 && coll.onRightWall) || side == -1 && !coll.onRightWall)
@@ -106,11 +141,10 @@ public class PlayerMovement : MonoBehaviour
             side *= -1;
             facingRight = !facingRight;
             transform.Rotate(0f, 180f, 0f);
-
         }
 
         StopCoroutine(DisableMovement(0));
-        StartCoroutine(DisableMovement(.1f));
+        StartCoroutine(DisableMovement(.12f));
 
         Vector2 wallDir = coll.onRightWall ? Vector2.left : Vector2.right;
 
